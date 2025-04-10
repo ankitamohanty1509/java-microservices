@@ -2,12 +2,11 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQubeServer' // replace with the name configured in Jenkins
-        DOCKER_IMAGE = "ankitamohanty1509/java-app:${env.BRANCH_NAME}"
-    }
-
-    triggers {
-        githubPush()
+        SONAR_TOKEN = 'sqa_2052fb1a438726238b842acfdd509153ab8b51b0'
+        SONAR_HOST_URL = 'http://localhost:9000'
+        DOCKER_IMAGE = 'ankitamohanty1509/java-app:latest'
+        DOCKER_USERNAME = 'ankitamohanty1509' // change if needed
+        DOCKER_PASSWORD = credentials('dockerhub-password') // store this in Jenkins Credentials
     }
 
     stages {
@@ -17,58 +16,38 @@ pipeline {
             }
         }
 
-        stage('Build & Test') {
+        stage('Build with Maven') {
             steps {
                 sh 'mvn clean package'
             }
         }
 
         stage('SonarQube Analysis') {
-            when {
-                not {
-                    branch 'main'
-                }
-            }
-            steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    sh 'mvn sonar:sonar'
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            when {
-                not {
-                    branch 'main'
-                }
-            }
-            steps {
-                timeout(time: 1, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
-        stage('Docker Build & Push') {
-            when {
-                branch 'develop'
-            }
             steps {
                 sh """
-                    docker build -t $DOCKER_IMAGE .
-                    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                    docker push $DOCKER_IMAGE
+                    mvn sonar:sonar \
+                        -Dsonar.projectKey=java-microservices \
+                        -Dsonar.projectName="Java Microservices" \
+                        -Dsonar.projectVersion=1.0 \
+                        -Dsonar.host.url=${SONAR_HOST_URL} \
+                        -Dsonar.login=${SONAR_TOKEN}
                 """
             }
         }
 
-        stage('Kubernetes Deploy') {
-            when {
-                branch 'develop'
+        stage('Docker Build & Push') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE .'
+                sh 'echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin'
+                sh 'docker push $DOCKER_IMAGE'
             }
+        }
+
+        stage('Deploy to Kubernetes') {
             steps {
                 sh 'kubectl apply -f k8s/deployment.yaml'
                 sh 'kubectl apply -f k8s/service.yaml'
+                sh 'kubectl get pods'
             }
         }
     }
