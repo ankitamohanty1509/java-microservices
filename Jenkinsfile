@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/ankitamohanty1509/java-microservices.git'
+                git url: 'https://github.com/ankitamohanty1509/java-microservices.git', branch: 'main'
             }
         }
 
