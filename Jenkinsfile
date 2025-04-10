@@ -4,7 +4,9 @@ pipeline {
     environment {
         SONAR_TOKEN = 'sqa_2052fb1a438726238b842acfdd509153ab8b51b0'
         SONAR_HOST_URL = 'http://localhost:9000'
-        DOCKER_IMAGE = 'ankitamohanty1509/java-app:latest'
+        DOCKER_USER = 'ankitamohanty1509'
+        DOCKER_PASS = credentials('docker-hub-credentials') // DockerHub credentials in Jenkins
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
@@ -16,28 +18,40 @@ pipeline {
 
         stage('Build with Maven') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh "mvn sonar:sonar -Dsonar.projectKey=java-microservices -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_TOKEN"
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
 
         stage('Docker Build & Push') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                        docker build -t $DOCKER_IMAGE .
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push $DOCKER_IMAGE
-                    '''
-                }
+                sh """
+                    docker login -u $DOCKER_USER -p $DOCKER_PASS
+                    docker build -t $DOCKER_USER/java-app:latest .
+                    docker push $DOCKER_USER/java-app:latest
+                """
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                    kubectl apply -f k8s/deployment.yaml
-                    kubectl apply -f k8s/service.yaml
-                '''
+                sh 'kubectl apply -f k8s/deployment.yaml'
+                sh 'kubectl apply -f k8s/service.yaml'
             }
         }
     }
