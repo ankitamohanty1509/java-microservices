@@ -5,7 +5,7 @@ pipeline {
         SONAR_TOKEN = 'sqa_2052fb1a438726238b842acfdd509153ab8b51b0'
         SONAR_HOST_URL = 'http://localhost:9000'
         DOCKER_USER = 'ankitamohanty1509'
-        DOCKER_PASS = credentials('docker-hub-credentials') // DockerHub credentials in Jenkins
+        DOCKER_PASS = credentials('docker-hub-credentials') 
         KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
 
@@ -33,7 +33,7 @@ pipeline {
         stage('Docker Build & Push') {
     steps {
         withCredentials([usernamePassword(
-            credentialsId: 'docker-hub-credential', 
+            credentialsId: 'docker-hub-credentials', 
             usernameVariable: 'DOCKER_USER', 
             passwordVariable: 'DOCKER_PASS'
         )]) {
