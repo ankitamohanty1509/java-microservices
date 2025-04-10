@@ -30,17 +30,22 @@ pipeline {
             }
         }
 
-
-
         stage('Docker Build & Push') {
-            steps {
-                sh """
-                    docker login -u $DOCKER_USER -p $DOCKER_PASS
-                    docker build -t $DOCKER_USER/java-app:latest .
-                    docker push $DOCKER_USER/java-app:latest
-                """
-            }
+    steps {
+        withCredentials([usernamePassword(
+            credentialsId: 'docker-hub-credential', 
+            usernameVariable: 'DOCKER_USER', 
+            passwordVariable: 'DOCKER_PASS'
+        )]) {
+            sh '''
+                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                docker build -t ankitamohanty1509/my-app:latest .
+                docker push ankitamohanty1509/my-app:latest
+            '''
         }
+    }
+}
+
 
         stage('Deploy to Kubernetes') {
             steps {
