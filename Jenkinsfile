@@ -31,27 +31,27 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
-    steps {
-        withCredentials([usernamePassword(
-            credentialsId: 'docker-hub-credentials', 
-            usernameVariable: 'DOCKER_USER', 
-            passwordVariable: 'DOCKER_PASS'
-        )]) {
-            sh '''
-                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                docker build -t ankitamohanty1509/my-app:latest .
-                docker push ankitamohanty1509/my-app:latest
-            '''
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-hub-credentials', 
+                    usernameVariable: 'DOCKER_USER', 
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker build -t ankitamohanty1509/my-app:latest .
+                        docker push ankitamohanty1509/my-app:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh 'kubectl apply -f k8s/deployment.yaml --validate=false'
+                }
+            }
         }
     }
-}
-
-
-       stage('Deploy to Kubernetes') {
-    steps {
-        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-            sh 'kubectl apply -f k8s/deployment.yaml --validate=false'
-        }
-    }
-}
 }
